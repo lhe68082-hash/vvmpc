@@ -524,6 +524,26 @@ select {
   align-items: center;
   gap: 10px;
   padding: 14px;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.ear-board.is-correct {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-3) 30%, transparent), transparent 50%),
+    rgba(16, 36, 26, 0.82);
+  border-color: color-mix(in srgb, var(--accent-3) 72%, white 8%);
+  box-shadow: 0 18px 45px rgba(8, 40, 23, 0.34);
+}
+
+.ear-board.is-wrong {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--danger) 24%, transparent), transparent 50%),
+    rgba(36, 18, 22, 0.8);
+  border-color: color-mix(in srgb, var(--danger) 60%, white 6%);
 }
 
 .score-ring,
