@@ -50,6 +50,10 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+button:disabled {
+  cursor: default;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
@@ -607,6 +611,10 @@ select {
   background: rgba(255, 255, 255, 0.08);
   font-size: clamp(0.9rem, 1.7vw, 1.15rem);
   font-weight: 750;
+}
+
+.answer-button:disabled:not(.correct):not(.wrong) {
+  opacity: 0.5;
 }
 
 .answer-button.correct {
