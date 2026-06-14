@@ -120,6 +120,7 @@ const state = {
   delay: null,
   feedback: null,
   fxGain: null,
+  limiter: null,
   analyser: null,
   audioUnlocked: false,
   mood: moods[0],
@@ -420,12 +421,18 @@ async function ensureAudio() {
     state.audio = new AudioContext();
 
     state.master = state.audio.createGain();
-    state.master.gain.value = 0.72;
+    state.master.gain.value = 1.05;
     state.delay = state.audio.createDelay(0.8);
     state.feedback = state.audio.createGain();
     state.fxGain = state.audio.createGain();
+    state.limiter = state.audio.createDynamicsCompressor();
     state.analyser = state.audio.createAnalyser();
     state.analyser.fftSize = 256;
+    state.limiter.threshold.value = -8;
+    state.limiter.knee.value = 8;
+    state.limiter.ratio.value = 6;
+    state.limiter.attack.value = 0.004;
+    state.limiter.release.value = 0.12;
 
     state.delay.delayTime.value = state.mood.sound.delay;
     state.feedback.gain.value = 0.28;
@@ -436,7 +443,8 @@ async function ensureAudio() {
     state.delay.connect(state.fxGain);
     state.fxGain.connect(state.master);
     state.master.connect(state.analyser);
-    state.analyser.connect(state.audio.destination);
+    state.analyser.connect(state.limiter);
+    state.limiter.connect(state.audio.destination);
   }
 
   if (state.audio.state === "suspended") {
