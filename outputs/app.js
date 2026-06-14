@@ -121,6 +121,7 @@ const state = {
   feedback: null,
   fxGain: null,
   analyser: null,
+  audioUnlocked: false,
   mood: moods[0],
   activeLayer: "lead",
   activeInstrument: "glass",
@@ -186,6 +187,7 @@ function init() {
   buildAnswers();
   setMood(moods[0].id);
   bindEvents();
+  updateAudioButton();
   resizeCanvas();
   newChallenge();
   requestAnimationFrame(drawVisuals);
@@ -200,11 +202,12 @@ function bindEvents() {
     els.audioButton.disabled = true;
     els.audioButton.textContent = "开启中";
     try {
-      await ensureAudio();
-      els.audioButton.textContent = state.audio?.state === "running" ? "声音已开" : "触摸开启";
-      els.audioButton.classList.toggle("is-active", state.audio?.state === "running");
-      els.audioButton.setAttribute("aria-pressed", state.audio?.state === "running" ? "true" : "false");
-      tapFeedback(72, "lead", 0.45);
+      const wasUnlocked = state.audioUnlocked;
+      const ready = await ensureAudio();
+      updateAudioButton();
+      if (ready && !wasUnlocked) {
+        tapFeedback(72, "lead", 0.28, 0.09);
+      }
     } catch (error) {
       console.warn("Audio start was blocked by the browser.", error);
       els.audioButton.textContent = "再点开启";
@@ -214,7 +217,9 @@ function bindEvents() {
   });
 
   els.beatButton.addEventListener("click", async () => {
-    await ensureAudio();
+    const ready = await ensureAudio();
+    updateAudioButton();
+    if (!ready) return;
     state.beatOn = !state.beatOn;
     els.beatButton.classList.toggle("is-active", state.beatOn);
     els.beatButton.setAttribute("aria-pressed", state.beatOn ? "true" : "false");
@@ -263,7 +268,9 @@ function bindEvents() {
     state.activeInstrument = button.dataset.instrument;
     state.activeLayer = getInstrument().role;
     renderInstrumentDeck();
-    await ensureAudio();
+    const ready = await ensureAudio();
+    updateAudioButton();
+    if (!ready) return;
     const note = noteFromDegree(2 + Math.floor(Math.random() * 4), state.octave + 1);
     triggerLayer(note, state.activeLayer, 0.58, 0.32, state.audio.currentTime, getInstrument());
     els.instrumentName.textContent = getInstrument().name;
@@ -276,12 +283,16 @@ function bindEvents() {
   els.noteGrid.addEventListener("lostpointercapture", stopGridPerformance);
 
   els.playChallenge.addEventListener("click", async () => {
-    await ensureAudio();
+    const ready = await ensureAudio();
+    updateAudioButton();
+    if (!ready) return;
     playChallenge();
   });
   els.nextChallenge.addEventListener("click", () => newChallenge());
 
   window.addEventListener("resize", resizeCanvas);
+  document.addEventListener("visibilitychange", updateAudioButton);
+  window.addEventListener("pageshow", updateAudioButton);
 }
 
 function buildMoodButtons() {
@@ -435,6 +446,18 @@ async function ensureAudio() {
       }),
     ]);
   }
+
+  const ready = state.audio.state === "running";
+  state.audioUnlocked = state.audioUnlocked || ready;
+  return ready;
+}
+
+function updateAudioButton() {
+  const ready = state.audio?.state === "running";
+  els.audioButton.classList.toggle("is-active", ready);
+  els.audioButton.setAttribute("aria-pressed", ready ? "true" : "false");
+  if (els.audioButton.disabled) return;
+  els.audioButton.textContent = ready ? "声音已开" : "点我开声";
 }
 
 function updateFx() {
@@ -449,7 +472,9 @@ async function handlePadPointer(event) {
   if (event.type !== "pointerdown" && state.padPointerId === null) return;
   if (state.padPointerId !== null && event.pointerId !== state.padPointerId) return;
   event.preventDefault();
-  await ensureAudio();
+  const ready = await ensureAudio();
+  updateAudioButton();
+  if (!ready) return;
   if (event.type === "pointerdown") {
     state.padPointerId = event.pointerId;
     els.padStage.setPointerCapture?.(event.pointerId);
@@ -509,7 +534,9 @@ async function handleGridPointer(event) {
   if (event.type !== "pointerdown" && state.gridPointerId === null) return;
   if (state.gridPointerId !== null && event.pointerId !== state.gridPointerId) return;
   event.preventDefault();
-  await ensureAudio();
+  const ready = await ensureAudio();
+  updateAudioButton();
+  if (!ready) return;
   if (event.type === "pointerdown") {
     state.gridPointerId = event.pointerId;
     els.noteGrid.setPointerCapture?.(event.pointerId);
@@ -941,7 +968,9 @@ function playChallenge() {
 }
 
 async function answer(semitones, button) {
-  await ensureAudio();
+  const ready = await ensureAudio();
+  updateAudioButton();
+  if (!ready) return;
   const correct = semitones === state.challenge.interval.semis;
   button.classList.add(correct ? "correct" : "wrong");
   if (correct) {
