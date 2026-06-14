@@ -169,6 +169,7 @@ const els = {
   noteGrid: document.getElementById("noteGrid"),
   gridNote: document.getElementById("gridNote"),
   gridHint: document.getElementById("gridHint"),
+  earBoard: document.getElementById("earBoard"),
   scoreValue: document.getElementById("scoreValue"),
   streakValue: document.getElementById("streakValue"),
   earPrompt: document.getElementById("earPrompt"),
@@ -953,6 +954,7 @@ function newChallenge() {
   const interval = intervals[Math.floor(Math.random() * intervals.length)];
   state.challenge = { rootMidi, interval };
   els.earPrompt.textContent = midiToName(rootMidi);
+  els.earBoard.classList.remove("is-correct", "is-wrong");
   document.querySelectorAll(".answer-button").forEach((button) => {
     button.classList.remove("correct", "wrong");
     button.disabled = false;
@@ -972,6 +974,8 @@ async function answer(semitones, button) {
   updateAudioButton();
   if (!ready) return;
   const correct = semitones === state.challenge.interval.semis;
+  els.earBoard.classList.toggle("is-correct", correct);
+  els.earBoard.classList.toggle("is-wrong", !correct);
   button.classList.add(correct ? "correct" : "wrong");
   if (correct) {
     state.score += 10 + state.streak * 2;
