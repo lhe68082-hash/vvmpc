@@ -148,7 +148,8 @@ h1 {
 .mood-button,
 .icon-btn,
 .primary-btn,
-.deck-pad {
+.deck-pad,
+.beat-btn {
   min-height: 40px;
   border-radius: 8px;
   transition:
@@ -160,7 +161,8 @@ h1 {
 
 .mode-tab,
 .mood-button,
-.icon-btn {
+.icon-btn,
+.beat-btn {
   padding: 0 14px;
   background: transparent;
   border: 1px solid transparent;
@@ -169,7 +171,9 @@ h1 {
 
 .mode-tab.is-active,
 .mood-button.is-active,
-.icon-btn.is-active {
+.icon-btn.is-active,
+.beat-btn.is-active,
+.audio-btn.is-active {
   background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.08));
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   color: var(--text);
@@ -182,11 +186,31 @@ h1 {
   font-weight: 750;
 }
 
+.audio-btn {
+  min-width: 110px;
+}
+
+.audio-btn.is-active {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 78%, white 10%), color-mix(in srgb, var(--accent-2) 72%, white 8%));
+}
+
+.beat-btn {
+  min-width: 90px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent),
+    rgba(0, 0, 0, 0.16);
+  color: var(--muted);
+  font-weight: 650;
+}
+
 .mode-tab:active,
 .mood-button:active,
 .icon-btn:active,
 .primary-btn:active,
-.deck-pad:active {
+.deck-pad:active,
+.beat-btn:active {
   transform: scale(0.97);
 }
 
