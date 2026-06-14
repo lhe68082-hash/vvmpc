@@ -144,6 +144,8 @@ const state = {
   score: 0,
   streak: 0,
   challenge: null,
+  challengeLocked: false,
+  challengeTimer: 0,
   particles: [],
 };
 
@@ -222,11 +224,8 @@ function bindEvents() {
     const ready = await ensureAudio();
     updateAudioButton();
     if (!ready) return;
-    state.beatOn = !state.beatOn;
-    els.beatButton.classList.toggle("is-active", state.beatOn);
-    els.beatButton.setAttribute("aria-pressed", state.beatOn ? "true" : "false");
-    if (state.beatOn) scheduleBeat();
-    else window.clearTimeout(state.beatTimer);
+    if (state.beatOn) stopBeatLoop(true);
+    else startBeatLoop();
   });
 
   els.bpmControl.addEventListener("input", () => {
@@ -445,6 +444,14 @@ async function ensureAudio() {
     state.master.connect(state.analyser);
     state.analyser.connect(state.limiter);
     state.limiter.connect(state.audio.destination);
+
+    state.audio.addEventListener("statechange", () => {
+      if (state.audio.state !== "running") {
+        stopContinuousVoice(0.04);
+        if (state.beatOn) stopBeatLoop(true);
+      }
+      updateAudioButton();
+    });
   }
 
   if (state.audio.state === "suspended") {
@@ -462,11 +469,13 @@ async function ensureAudio() {
 }
 
 function updateAudioButton() {
-  const ready = state.audio?.state === "running";
+  const audioState = state.audio?.state;
+  const ready = audioState === "running";
+  const resumeHint = audioState === "interrupted" || (audioState === "suspended" && state.audioUnlocked);
   els.audioButton.classList.toggle("is-active", ready);
   els.audioButton.setAttribute("aria-pressed", ready ? "true" : "false");
   if (els.audioButton.disabled) return;
-  els.audioButton.textContent = ready ? "声音已开" : "点我开声";
+  els.audioButton.textContent = ready ? "声音已开" : resumeHint ? "点我恢复声音" : "点我开声";
 }
 
 function updateFx() {
@@ -475,6 +484,24 @@ function updateFx() {
   state.fxGain.gain.setTargetAtTime(amount * 0.72, state.audio.currentTime, 0.02);
   state.delay.delayTime.setTargetAtTime(state.mood.sound.delay + amount * 0.18, state.audio.currentTime, 0.03);
   state.feedback.gain.setTargetAtTime(0.12 + amount * 0.36, state.audio.currentTime, 0.03);
+}
+
+function startBeatLoop() {
+  window.clearTimeout(state.beatTimer);
+  state.beatOn = true;
+  state.beatStep = 0;
+  els.beatButton.classList.add("is-active");
+  els.beatButton.setAttribute("aria-pressed", "true");
+  scheduleBeat();
+}
+
+function stopBeatLoop(resetStep = false) {
+  window.clearTimeout(state.beatTimer);
+  state.beatTimer = 0;
+  state.beatOn = false;
+  if (resetStep) state.beatStep = 0;
+  els.beatButton.classList.remove("is-active");
+  els.beatButton.setAttribute("aria-pressed", "false");
 }
 
 async function handlePadPointer(event) {
@@ -906,6 +933,8 @@ function drawVisuals() {
   const rect = els.padStage.getBoundingClientRect();
   canvasCtx.clearRect(0, 0, rect.width, rect.height);
   canvasCtx.globalCompositeOperation = "lighter";
+  const accent = state.mood.theme[0];
+  const accent2 = state.mood.theme[1];
 
   state.particles.forEach((particle) => {
     particle.x += particle.vx;
@@ -919,7 +948,7 @@ function drawVisuals() {
       particle.y * rect.height,
       particle.r * (1 + 1 - particle.life),
     );
-    gradient.addColorStop(0, cssVar("--accent", 0.62 * particle.life));
+    gradient.addColorStop(0, rgbaFromHex(accent, 0.62 * particle.life));
     gradient.addColorStop(1, "rgba(255,255,255,0)");
     canvasCtx.fillStyle = gradient;
     canvasCtx.beginPath();
@@ -935,7 +964,7 @@ function drawVisuals() {
     const barW = rect.width / bars;
     for (let i = 0; i < bars; i += 1) {
       const value = bins[i * 2] / 255;
-      canvasCtx.fillStyle = cssVar(i % 2 ? "--accent-2" : "--accent", 0.12 + value * 0.28);
+      canvasCtx.fillStyle = rgbaFromHex(i % 2 ? accent2 : accent, 0.12 + value * 0.28);
       canvasCtx.fillRect(i * barW, rect.height - value * rect.height * 0.34, barW * 0.6, value * rect.height * 0.34);
     }
   }
@@ -944,23 +973,22 @@ function drawVisuals() {
   requestAnimationFrame(drawVisuals);
 }
 
-function cssVar(name, alpha = 1) {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  if (value.startsWith("#")) {
-    const hex = value.slice(1);
-    const int = parseInt(hex.length === 3 ? hex.replace(/(.)/g, "$1$1") : hex, 16);
-    const r = (int >> 16) & 255;
-    const g = (int >> 8) & 255;
-    const b = int & 255;
-    return `rgba(${r},${g},${b},${alpha})`;
-  }
-  return value;
+function rgbaFromHex(hex, alpha = 1) {
+  const normalized = hex.startsWith("#") ? hex.slice(1) : hex;
+  const fullHex = normalized.length === 3 ? normalized.replace(/(.)/g, "$1$1") : normalized;
+  const int = parseInt(fullHex, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function newChallenge() {
+  window.clearTimeout(state.challengeTimer);
   const rootMidi = 60 + Math.floor(Math.random() * 8);
   const interval = intervals[Math.floor(Math.random() * intervals.length)];
   state.challenge = { rootMidi, interval };
+  state.challengeLocked = false;
   els.earPrompt.textContent = midiToName(rootMidi);
   els.earBoard.classList.remove("is-correct", "is-wrong");
   document.querySelectorAll(".answer-button").forEach((button) => {
@@ -978,10 +1006,18 @@ function playChallenge() {
 }
 
 async function answer(semitones, button) {
+  if (!state.challenge || state.challengeLocked) return;
+  state.challengeLocked = true;
   const ready = await ensureAudio();
   updateAudioButton();
-  if (!ready) return;
+  if (!ready) {
+    state.challengeLocked = false;
+    return;
+  }
   const correct = semitones === state.challenge.interval.semis;
+  document.querySelectorAll(".answer-button").forEach((answerButton) => {
+    answerButton.disabled = true;
+  });
   els.earBoard.classList.toggle("is-correct", correct);
   els.earBoard.classList.toggle("is-wrong", !correct);
   button.classList.add(correct ? "correct" : "wrong");
@@ -989,7 +1025,7 @@ async function answer(semitones, button) {
     state.score += 10 + state.streak * 2;
     state.streak += 1;
     triggerLayer(72, "texture", 0.5, 0.42);
-    setTimeout(newChallenge, 620);
+    state.challengeTimer = window.setTimeout(newChallenge, 620);
   } else {
     state.streak = 0;
     triggerLayer(45, "bass", 0.58, 0.25);
