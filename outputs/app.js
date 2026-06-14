@@ -126,6 +126,7 @@ const state = {
   activeInstrument: "glass",
   continuousVoice: null,
   padPointerId: null,
+  gridPointerId: null,
   mode: "play",
   root: 0,
   scaleName: "Major Pentatonic",
@@ -197,14 +198,16 @@ function bindEvents() {
 
   els.audioButton.addEventListener("click", async () => {
     els.audioButton.disabled = true;
-    els.audioButton.textContent = "准备中";
+    els.audioButton.textContent = "开启中";
     try {
       await ensureAudio();
-      els.audioButton.textContent = state.audio?.state === "running" ? "音频已开" : "触摸演奏";
+      els.audioButton.textContent = state.audio?.state === "running" ? "声音已开" : "触摸开启";
+      els.audioButton.classList.toggle("is-active", state.audio?.state === "running");
+      els.audioButton.setAttribute("aria-pressed", state.audio?.state === "running" ? "true" : "false");
       tapFeedback(72, "lead", 0.45);
     } catch (error) {
       console.warn("Audio start was blocked by the browser.", error);
-      els.audioButton.textContent = "点击重试";
+      els.audioButton.textContent = "再点开启";
     } finally {
       els.audioButton.disabled = false;
     }
@@ -214,6 +217,7 @@ function bindEvents() {
     await ensureAudio();
     state.beatOn = !state.beatOn;
     els.beatButton.classList.toggle("is-active", state.beatOn);
+    els.beatButton.setAttribute("aria-pressed", state.beatOn ? "true" : "false");
     if (state.beatOn) scheduleBeat();
     else window.clearTimeout(state.beatTimer);
   });
@@ -267,8 +271,9 @@ function bindEvents() {
 
   els.noteGrid.addEventListener("pointerdown", handleGridPointer);
   els.noteGrid.addEventListener("pointermove", handleGridPointer);
-  els.noteGrid.addEventListener("pointerup", clearGridActive);
-  els.noteGrid.addEventListener("pointercancel", clearGridActive);
+  els.noteGrid.addEventListener("pointerup", stopGridPerformance);
+  els.noteGrid.addEventListener("pointercancel", stopGridPerformance);
+  els.noteGrid.addEventListener("lostpointercapture", stopGridPerformance);
 
   els.playChallenge.addEventListener("click", async () => {
     await ensureAudio();
@@ -441,14 +446,14 @@ function updateFx() {
 }
 
 async function handlePadPointer(event) {
-  if (event.buttons === 0 && event.type !== "pointerdown") return;
+  if (event.type !== "pointerdown" && state.padPointerId === null) return;
+  if (state.padPointerId !== null && event.pointerId !== state.padPointerId) return;
   event.preventDefault();
   await ensureAudio();
   if (event.type === "pointerdown") {
     state.padPointerId = event.pointerId;
     els.padStage.setPointerCapture?.(event.pointerId);
   }
-  if (state.padPointerId !== null && event.pointerId !== state.padPointerId) return;
 
   const rect = els.padStage.getBoundingClientRect();
   const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
@@ -498,13 +503,17 @@ function stopPadPerformance(event) {
   if (event?.pointerId && state.padPointerId !== null && event.pointerId !== state.padPointerId) return;
   stopContinuousVoice();
   state.padPointerId = null;
-  state.lastPadKey = "";
 }
 
 async function handleGridPointer(event) {
-  if (event.buttons === 0 && event.type !== "pointerdown") return;
+  if (event.type !== "pointerdown" && state.gridPointerId === null) return;
+  if (state.gridPointerId !== null && event.pointerId !== state.gridPointerId) return;
   event.preventDefault();
   await ensureAudio();
+  if (event.type === "pointerdown") {
+    state.gridPointerId = event.pointerId;
+    els.noteGrid.setPointerCapture?.(event.pointerId);
+  }
 
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const cell = target?.closest?.(".grid-cell");
@@ -513,16 +522,25 @@ async function handleGridPointer(event) {
   const key = `${cell.dataset.col}:${cell.dataset.row}`;
   if (key === state.lastPadKey && event.type !== "pointerdown") return;
 
-  state.lastPadKey = key;
-  clearGridActive();
+  els.noteGrid.querySelectorAll(".active").forEach((activeCell) => activeCell.classList.remove("active"));
   cell.classList.add("active");
+  state.lastPadKey = key;
   els.gridNote.textContent = midiToName(midi);
-  triggerLayer(midi, state.activeLayer === "drum" ? "lead" : state.activeLayer, 0.62, 0.35);
+  const x = clamp((Number(cell.dataset.col) + 0.5) / (window.matchMedia("(max-width: 620px)").matches ? 12 : 16), 0, 1);
+  const instrument = getInstrument().role === "texture" ? instruments.find((item) => item.id === "glass") : getInstrument();
+  updateContinuousVoice(midi, 0.72, x, 0.8 + x * 1.2, instrument);
 }
 
 function clearGridActive() {
   els.noteGrid.querySelectorAll(".active").forEach((cell) => cell.classList.remove("active"));
   state.lastPadKey = "";
+}
+
+function stopGridPerformance(event) {
+  if (event?.pointerId && state.gridPointerId !== null && event.pointerId !== state.gridPointerId) return;
+  stopContinuousVoice(0.08);
+  state.gridPointerId = null;
+  clearGridActive();
 }
 
 function getInstrument(id = state.activeInstrument) {
