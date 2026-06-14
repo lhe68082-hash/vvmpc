@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>SlideTone MPC</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app" data-mode="play">
+      <header class="topbar">
+        <div class="brand">
+          <span class="mark" aria-hidden="true"></span>
+          <div>
+            <h1>SlideTone</h1>
+            <p id="moodLine">Dream pop · pentatonic · glass pads</p>
+          </div>
+        </div>
+
+        <nav class="mode-tabs" aria-label="模式">
+          <button class="mode-tab is-active" data-mode="play" type="button">演奏</button>
+          <button class="mode-tab" data-mode="pro" type="button">专业</button>
+          <button class="mode-tab" data-mode="ear" type="button">练耳</button>
+        </nav>
+      </header>
+
+      <section class="controls" aria-label="音色控制">
+        <div class="control-group mood-pills" id="moodButtons"></div>
+
+        <div class="control-group transport">
+          <button class="primary-btn" id="audioButton" type="button">启动音频</button>
+          <button class="icon-btn" id="beatButton" type="button" aria-label="节拍">Beat</button>
+          <label class="slider-wrap">
+            <span>BPM</span>
+            <input id="bpmControl" type="range" min="70" max="150" value="104" />
+            <output id="bpmValue">104</output>
+          </label>
+          <label class="slider-wrap">
+            <span>FX</span>
+            <input id="fxControl" type="range" min="0" max="100" value="38" />
+            <output id="fxValue">38</output>
+          </label>
+        </div>
+      </section>
+
+      <section class="performance mode-panel is-active" id="playPanel" aria-label="滑动演奏">
+        <div class="pad-stage" id="padStage" role="application" aria-label="演奏触控区">
+          <canvas id="visualCanvas" class="visual-canvas"></canvas>
+          <div class="stage-grid" aria-hidden="true"></div>
+          <div class="stage-vignette" aria-hidden="true"></div>
+          <div class="touch-ripple" id="touchRipple" aria-hidden="true"></div>
+          <div class="note-readout">
+            <span id="noteName">--</span>
+            <span id="instrumentName">Pad</span>
+          </div>
+        </div>
+
+        <div class="deck-strip" id="instrumentDeck" aria-label="快速音色"></div>
+      </section>
+
+      <section class="pro-panel mode-panel" id="proPanel" aria-label="专业音符控制">
+        <div class="pro-toolbar">
+          <label>
+            <span>Root</span>
+            <select id="rootSelect"></select>
+          </label>
+          <label>
+            <span>Scale</span>
+            <select id="scaleSelect"></select>
+          </label>
+          <label>
+            <span>Octave</span>
+            <input id="octaveControl" type="range" min="2" max="5" value="3" />
+            <output id="octaveValue">3</output>
+          </label>
+          <label class="toggle">
+            <input id="snapToggle" type="checkbox" checked />
+            <span>Snap</span>
+          </label>
+        </div>
+
+        <div class="note-grid" id="noteGrid" role="application" aria-label="音符网格"></div>
+        <div class="pro-status">
+          <span id="gridNote">C4</span>
+          <span id="gridHint">16 x 12</span>
+        </div>
+      </section>
+
+      <section class="ear-panel mode-panel" id="earPanel" aria-label="练耳游戏">
+        <div class="ear-board">
+          <div class="score-ring">
+            <span id="scoreValue">0</span>
+            <small>Score</small>
+          </div>
+          <div class="ear-main">
+            <h2 id="earTitle">Interval Lab</h2>
+            <p id="earPrompt">C</p>
+            <div class="ear-actions">
+              <button class="primary-btn" id="playChallenge" type="button">播放</button>
+              <button class="icon-btn" id="nextChallenge" type="button">下一题</button>
+            </div>
+          </div>
+          <div class="streak">
+            <span id="streakValue">0</span>
+            <small>Streak</small>
+          </div>
+        </div>
+        <div class="answer-grid" id="answerGrid"></div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
